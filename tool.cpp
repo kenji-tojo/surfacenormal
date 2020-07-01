@@ -207,12 +207,11 @@ int main(int argc, char *argv[]) {
 	Tthrehold = 0.1;
 
 	chrono::duration<double> elapsed;
-	/*
+	
 	std::string path = "data";
 	fs::path p(path);
 	for (const auto& entry : fs::directory_iterator(p))
 		std::cout << entry.path() << std::endl;
-	*/
 
 	
 	//Mat src = imread(argv[0], CV_LOAD_IMAGE_ANYDEPTH);
