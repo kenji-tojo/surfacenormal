@@ -200,6 +200,59 @@ Mat res=calplanenormal(src);
 imwrite(OUTPUT_NAME,res);
 } */
 
+void task(int i, const fs::path& lidar_path,
+	const fs::path& normal_path, const fs::path& intr_path) {
+
+	std::vector<string> lidar_data, intr_data, norm_data;
+	fs::path lpath = lidar_path / std::to_string(i);
+	fs::path npath = normal_path / std::to_string(i);
+	fs::create_directories(npath);
+	fs::path ipath = intr_path / std::to_string(i);
+	
+	for (const auto& entry : fs::directory_iterator(lpath)) {
+		lidar_data.push_back(entry.path().string());
+		norm_data.push_back((npath / entry.path().filename()).string());
+	}
+	for (const auto& entry : fs::directory_iterator(ipath)) {
+		intr_data.push_back(entry.path().string());
+	}
+	//cout << "n_lidar_data: " << lidar_data.size() << endl;
+	//cout << "n_norm_data: " << norm_data.size() << endl;
+	//cout << "n_intr_data: " << intr_data.size() << endl;
+
+	vector<float> camera_intrs;
+	chrono::duration<double> elapsed;
+
+	for (int j = 0; j < lidar_data.size(); j++) {
+		auto start = chrono::high_resolution_clock::now();
+		cout << lidar_data[j] << endl;
+		camera_intrs.clear();
+		ifstream infile;
+		string instr;
+		infile.open(intr_data[j]);
+		std::getline(infile, instr);
+		istringstream iss(instr);
+		do {
+			float val;
+			iss >> val;
+			camera_intrs.push_back(val);
+		} while (iss);
+		infile.close();
+		cout << camera_intrs[0] << ' ' << camera_intrs[2] << ' ' << camera_intrs[5] << endl;
+		fcxcy[0] = camera_intrs[0];
+		fcxcy[1] = camera_intrs[2];
+		fcxcy[2] = camera_intrs[5];
+
+		Mat img = imread(lidar_data[j], IMREAD_ANYDEPTH);
+		cout << img.size();
+		Mat res = calplanenormal(img);
+		imwrite(norm_data[j], res);
+		auto finish = chrono::high_resolution_clock::now();
+		elapsed = finish - start;
+		cout << "Elapsed time: " << elapsed.count() << endl;
+	}
+}
+
 int main(int argc, char *argv[]) {
 
 	fcxcy[0] = 721.5377;
@@ -211,7 +264,7 @@ int main(int argc, char *argv[]) {
 		cout << "usage: " << argv[0] << " lidar_dir intr_dir" << endl;
 	}
 
-	chrono::duration<double> elapsed;
+	//chrono::duration<double> elapsed;
 
 	std::string lidar_dir(argv[1]);
 	std::string normal_dir = lidar_dir + "_normal";
@@ -219,57 +272,59 @@ int main(int argc, char *argv[]) {
 	fs::path lidar_path(lidar_dir);
 	fs::path normal_path(normal_dir);
 	fs::path intr_path(intr_dir);
-	std::vector<string> lidar_data, intr_data, norm_data;
+	//std::vector<string> lidar_data, intr_data, norm_data;
+	std::vector<std::thread> threads;
 
 	for (int i = 0; i < 6; i++) {
-		lidar_data.clear();
-		intr_data.clear();
-		norm_data.clear();
-		fs::path lpath = lidar_path / std::to_string(i);
-		fs::path npath = normal_path / std::to_string(i);
-		fs::create_directories(npath);
-		fs::path ipath = intr_path / std::to_string(i);
-		
-		for (const auto& entry : fs::directory_iterator(lpath)) {
-			lidar_data.push_back(entry.path().string());
-			norm_data.push_back((npath / entry.path().filename()).string());
-		}
-		for (const auto& entry : fs::directory_iterator(ipath)) {
-			intr_data.push_back(entry.path().string());
-		}
-		cout << "n_lidar_data: " << lidar_data.size() << endl;
-		cout << "n_norm_data: " << norm_data.size() << endl;
-		cout << "n_intr_data: " << intr_data.size() << endl;
+		threads.push_back(std::thread(task, i, lidar_path, normal_path, intr_path));
+		//lidar_data.clear();
+		//intr_data.clear();
+		//norm_data.clear();
+		//fs::path lpath = lidar_path / std::to_string(i);
+		//fs::path npath = normal_path / std::to_string(i);
+		//fs::create_directories(npath);
+		//fs::path ipath = intr_path / std::to_string(i);
+		//
+		//for (const auto& entry : fs::directory_iterator(lpath)) {
+		//	lidar_data.push_back(entry.path().string());
+		//	norm_data.push_back((npath / entry.path().filename()).string());
+		//}
+		//for (const auto& entry : fs::directory_iterator(ipath)) {
+		//	intr_data.push_back(entry.path().string());
+		//}
+		//cout << "n_lidar_data: " << lidar_data.size() << endl;
+		//cout << "n_norm_data: " << norm_data.size() << endl;
+		//cout << "n_intr_data: " << intr_data.size() << endl;
 
-		vector<float> camera_intrs;
-		for (int j = 0; j < lidar_data.size(); j++) {
-			auto start = chrono::high_resolution_clock::now();
-			cout << lidar_data[j] << endl;
-			camera_intrs.clear();
-			ifstream infile;
-			string instr;
-			infile.open(intr_data[j]);
-			std::getline(infile, instr);
-			istringstream iss(instr);
-			do {
-				float val;
-				iss >> val;
-				camera_intrs.push_back(val);
-			} while (iss);
-			infile.close();
-			cout << camera_intrs[0] << ' ' << camera_intrs[2] << ' ' << camera_intrs[5] << endl;
-			fcxcy[0] = camera_intrs[0];
-			fcxcy[1] = camera_intrs[2];
-			fcxcy[2] = camera_intrs[5];
+		//vector<float> camera_intrs;
+		//for (int j = 0; j < lidar_data.size(); j++) {
+		//	auto start = chrono::high_resolution_clock::now();
+		//	cout << lidar_data[j] << endl;
+		//	camera_intrs.clear();
+		//	ifstream infile;
+		//	string instr;
+		//	infile.open(intr_data[j]);
+		//	std::getline(infile, instr);
+		//	istringstream iss(instr);
+		//	do {
+		//		float val;
+		//		iss >> val;
+		//		camera_intrs.push_back(val);
+		//	} while (iss);
+		//	infile.close();
+		//	cout << camera_intrs[0] << ' ' << camera_intrs[2] << ' ' << camera_intrs[5] << endl;
+		//	fcxcy[0] = camera_intrs[0];
+		//	fcxcy[1] = camera_intrs[2];
+		//	fcxcy[2] = camera_intrs[5];
 
-			Mat img = imread(lidar_data[j], IMREAD_ANYDEPTH);
-			cout << img.size();
-			Mat res = calplanenormal(img);
-			imwrite(norm_data[j], res);
-			auto finish = chrono::high_resolution_clock::now();
-			elapsed = finish - start;
-			cout << "Elapsed time: " << elapsed.count() << endl;
-		}
+		//	Mat img = imread(lidar_data[j], IMREAD_ANYDEPTH);
+		//	cout << img.size();
+		//	Mat res = calplanenormal(img);
+		//	imwrite(norm_data[j], res);
+		//	auto finish = chrono::high_resolution_clock::now();
+		//	elapsed = finish - start;
+		//	cout << "Elapsed time: " << elapsed.count() << endl;
+		//}
 		//for (const auto& entry : fs::directory_iterator(lpath)) {
 		//	cout << entry.path().string() << endl;
 		//	Mat img = imread(entry.path().string(), IMREAD_ANYDEPTH);
@@ -277,6 +332,10 @@ int main(int argc, char *argv[]) {
 		//	Mat res = calplanenormal(img);
 		//	imwrite((npath / entry.path().filename()).string(), res);
 		//}
+	}
+	
+	for (auto& th : threads) {
+		th.join();
 	}
 
 	/*
